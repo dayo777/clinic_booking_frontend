@@ -3,16 +3,30 @@ import type { Appointment, Doctor, Patient, ScheduleSlot } from './types';
 const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/$/, '');
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', 'x-api-version': '1', ...(options.headers || {}) },
-  });
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `${response.status} ${response.statusText}`);
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', 'x-api-version': '1', ...(options.headers || {}) },
+    });
+  } catch {
+    throw new Error(`Cannot reach the API at ${BASE_URL}. Check that the backend is running and CORS allows this frontend origin.`);
   }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(responseText || `${response.status} ${response.statusText}`);
+  }
+
+  // The backend returns 201/200 with an empty body for several successful writes.
+  // Do not call response.json() on an empty response.
+  if (!responseText.trim()) return undefined as T;
+
+  try {
+    return JSON.parse(responseText) as T;
+  } catch {
+    throw new Error(`The API returned an invalid response for ${path}.`);
+  }
 }
 
 export const api = {
