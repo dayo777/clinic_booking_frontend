@@ -1,93 +1,71 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Activity, CalendarDays, Check, CircleAlert, HeartPulse, LoaderCircle, Power, Search, Stethoscope, Trash2, Users, X } from 'lucide-react';
 import { api } from './api';
 import type { Appointment, Doctor, Patient } from './types';
 import { idOf } from './types';
-import { Activity, CalendarDays, Check, ChevronRight, CircleAlert, Clock3, HeartPulse, LoaderCircle, Plus, Search, ShieldCheck, Stethoscope, Trash2, UserRound, Users, X, Power } from 'lucide-react';
 import './styles.css';
 
-const navItems = [{ key: 'overview', label: 'Overview', icon: Activity }, { key: 'patients', label: 'Patients', icon: Users }, { key: 'doctors', label: 'Doctors', icon: Stethoscope }, { key: 'appointments', label: 'Appointments', icon: CalendarDays }];
-type View = typeof navItems[number]['key'];
+type View = 'overview' | 'patients' | 'doctors' | 'appointments';
 
-function App() {
+export default function App() {
   const [view, setView] = useState<View>('overview');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [inactiveDoctors, setInactiveDoctors] = useState<Doctor[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+  const [showInactive, setShowInactive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showPatientForm, setShowPatientForm] = useState(false);
-  const [showDoctorForm, setShowDoctorForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [p, d, id] = await Promise.all([api.patients(), api.doctors(), api.inactiveDoctors().catch(() => [])]);
-      setPatients(p || []); setDoctors(d || []); setInactiveDoctors(id || []);
-      const lists = await Promise.all((p || []).slice(0, 5).map(x => api.appointmentsForPatient(idOf(x)).catch(() => [])));
+      const [p, d, inactive] = await Promise.all([api.patients(), api.doctors(), api.inactiveDoctors()]);
+      setPatients(p || []); setDoctors(d || []); setInactiveDoctors(inactive || []);
+      const lists = await Promise.all((p || []).slice(0, 20).map(patient => api.appointmentsForPatient(idOf(patient)).catch(() => [])));
       setAppointments(lists.flat());
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not connect to the API.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load clinic data.'); }
     finally { setLoading(false); }
   }, []);
+
   useEffect(() => { load(); }, [load]);
 
-  const title = navItems.find(x => x.key === view)?.label || 'Overview';
+  const openPatient = async (patient: Patient) => {
+    setSelectedPatient(patient);
+    setPatientAppointments(await api.appointmentsForPatient(idOf(patient)).catch(() => []));
+  };
+  const enableDoctor = async (doctor: Doctor) => { await api.enableDoctor(idOf(doctor)); setSelectedDoctor(null); await load(); };
+  const deactivateDoctor = async (doctor: Doctor) => { await api.deactivateDoctor(idOf(doctor)); setSelectedDoctor(null); await load(); };
+
   return <div className="app-shell">
-    <aside className="sidebar"><div className="brand"><div className="brand-mark"><HeartPulse size={21} /></div><div><strong>CarePoint</strong><span>Clinic operations</span></div></div><nav>{navItems.map(({ key, label, icon: Icon }) => <button key={key} className={view === key ? 'nav-item active' : 'nav-item'} onClick={() => setView(key)}><Icon size={18} />{label}</button>)}</nav><div className="sidebar-footer"><ShieldCheck size={16} />API v1 connected</div></aside>
-    <main className="main"><header className="topbar"><div><p className="eyebrow">CLINIC BOOKING API</p><h1>{title}</h1></div><button className="avatar">DU</button></header>
-      {error && <div className="alert"><CircleAlert size={18} /><span>{error}</span><button onClick={load}><Activity size={15}/> Retry</button></div>}
-      {loading ? <div className="loading"><LoaderCircle className="spin" size={28}/><span>Loading clinic data…</span></div> : view === 'overview' ? <Overview patients={patients} doctors={doctors} appointments={appointments} onNavigate={setView} /> : view === 'patients' ? <Patients patients={patients} onAdd={() => setShowPatientForm(true)} onDelete={async id => { await api.deletePatient(id); load(); }} /> : view === 'doctors' ? <Doctors doctors={doctors} inactiveDoctors={inactiveDoctors} onAdd={() => setShowDoctorForm(true)} onEnable={async id => { await api.enableDoctor(id); load(); }} onDeactivate={async id => { await api.deactivateDoctor(id); load(); }} /> : <Appointments appointments={appointments} onAction={async (id, action) => { if (action === 'confirm') await api.confirmAppointment(id); else if (action === 'cancel') await api.cancelAppointment(id); else if (action === 'complete') await api.completeAppointment(id); else if (action === 'no-show') await api.noShowAppointment(id); load(); }} />}
+    <aside className="sidebar"><div className="brand"><div className="brand-mark"><HeartPulse size={21}/></div><div><strong>CarePoint</strong><span>Clinic operations</span></div></div><nav>
+      {([['overview', 'Overview', Activity], ['patients', 'Patients', Users], ['doctors', 'Doctors', Stethoscope], ['appointments', 'Appointments', CalendarDays]] as const).map(([key, label, Icon]) => <button key={key} className={view === key ? 'nav-item active' : 'nav-item'} onClick={() => setView(key)}><Icon size={18}/>{label}</button>)}
+    </nav><div className="sidebar-footer">API v1 connected</div></aside>
+    <main className="main"><header className="topbar"><div><p className="eyebrow">CLINIC BOOKING API</p><h1>{view[0].toUpperCase() + view.slice(1)}</h1></div><button className="avatar">DU</button></header>
+      {error && <div className="alert"><CircleAlert size={18}/><span>{error}</span><button onClick={load}>Retry</button></div>}
+      {loading ? <div className="loading"><LoaderCircle className="spin" size={28}/><span>Loading clinic data…</span></div> : <>
+        {view === 'overview' && <Overview patients={patients} doctors={doctors} appointments={appointments} onNavigate={setView}/>} 
+        {view === 'patients' && <PatientList patients={patients} onOpen={openPatient}/>} 
+        {view === 'doctors' && <DoctorList doctors={showInactive ? inactiveDoctors : doctors} inactive={showInactive} onToggle={() => setShowInactive(value => !value)} onOpen={setSelectedDoctor}/>} 
+        {view === 'appointments' && <AppointmentList appointments={appointments}/>} 
+      </>}
     </main>
-    {showPatientForm && <PatientForm onClose={() => setShowPatientForm(false)} onSaved={() => { setShowPatientForm(false); load(); }} />}
-    {showDoctorForm && <DoctorForm onClose={() => setShowDoctorForm(false)} onSaved={() => { setShowDoctorForm(false); load(); }} />}
+    {selectedDoctor && <DoctorDrawer doctor={selectedDoctor} inactive={selectedDoctor.is_active === false || showInactive} onClose={() => setSelectedDoctor(null)} onEnable={() => enableDoctor(selectedDoctor)} onDeactivate={() => deactivateDoctor(selectedDoctor)}/>} 
+    {selectedPatient && <PatientDrawer patient={selectedPatient} appointments={patientAppointments} onClose={() => setSelectedPatient(null)}/>} 
   </div>;
 }
 
-function Overview({ patients, doctors, appointments, onNavigate }: { patients: Patient[]; doctors: Doctor[]; appointments: Appointment[]; onNavigate: (v: View) => void }) { return <><section className="hero"><div><p className="eyebrow light">GOOD MORNING, ADMIN</p><h2>Your clinic, at a glance.</h2><p>Keep every patient, provider and appointment moving smoothly.</p></div><div className="hero-orb"><HeartPulse size={58}/></div></section><div className="stat-grid"><Stat icon={Users} label="Total patients" value={patients.length} tone="purple" /><Stat icon={Stethoscope} label="Active doctors" value={doctors.filter(d => d.is_active !== false).length} tone="blue" /><Stat icon={CalendarDays} label="Appointments" value={appointments.length} tone="orange" /><Stat icon={Clock3} label="Scheduled" value={appointments.filter(a => a.status === 'Scheduled').length} tone="green" /></div><section className="content-grid"><div className="panel"><div className="panel-heading"><div><p className="eyebrow">QUICK ACTIONS</p><h3>Get things done</h3></div></div><div className="quick-actions"><button onClick={() => onNavigate('patients')}><UserRound /><span><b>Manage patients</b><small>View or register patients</small></span><ChevronRight /></button><button onClick={() => onNavigate('doctors')}><Stethoscope /><span><b>Manage doctors</b><small>Review your care team</small></span><ChevronRight /></button><button onClick={() => onNavigate('appointments')}><CalendarDays /><span><b>Review appointments</b><small>Confirm or cancel visits</small></span><ChevronRight /></button></div></div><div className="panel insight"><p className="eyebrow">SYSTEM STATUS</p><h3>Everything is healthy</h3><div className="status-line"><span className="status-dot"/></ Backend API online</div><div className="status-line"><span className="status-dot"/>MongoDB data available</div><div className="status-line"><span className="status-dot"/>Tracing enabled via Jaeger</div></div></section></> }
-function Stat({ icon: Icon, label, value, tone }: { icon: typeof Users; label: string; value: number; tone: string }) { return <div className="stat"><div className={`stat-icon ${tone}`}><Icon size={20}/></div><div><span>{label}</span><strong>{value}</strong></div></div> }
-function PageHeader({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: React.ReactNode }) { return <div className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p></div>{action}</div> }
-function Patients({ patients, onAdd, onDelete }: { patients: Patient[]; onAdd: () => void; onDelete: (id: string) => void }) { const [query, setQuery] = useState(''); const filtered = patients.filter(p => p.name.toLowerCase().includes(query.toLowerCase())); return <><PageHeader eyebrow="PATIENT DIRECTORY" title="Patients" description="Manage patient records and contact information." action={<button className="primary" onClick={onAdd}><Plus size={17}/> Register patient</button>} /><div className="toolbar"><div className="search"><Search size={17}/><input placeholder="Search patients…" value={query} onChange={e => setQuery(e.target.value)} /></div><span className="muted">{filtered.length} records</span></div><div className="panel table-wrap"><table><thead><tr><th>Patient</th><th>Date of birth</th><th>Gender</th><th>Contact</th><th></th></tr></thead><tbody>{filtered.map(p => <tr key={idOf(p)}><td><div className="person"><div className="person-avatar purple-bg">{p.name.slice(0, 2).toUpperCase()}</div><div><b>{p.name}</b><small>{idOf(p)}</small></div></div></td><td>{p.dob}</td><td><span className="tag">{p.gender}</span></td><td>{p.contact?.email || '—'}</td><td><button className="icon-button danger" onClick={() => onDelete(idOf(p))}><Trash2 size={16}/></button></td></tr>)}</tbody></table>{!filtered.length && <Empty text="No patients found" />}</div></> }
-
-function Doctors({ doctors, inactiveDoctors, onAdd, onEnable, onDeactivate }: { doctors: Doctor[]; inactiveDoctors: Doctor[]; onAdd: () => void; onEnable: (id: string) => void; onDeactivate: (id: string) => void }) {
-  const [showInactive, setShowInactive] = useState(false);
-  const displayList = showInactive ? inactiveDoctors : doctors;
-  
-  return <>
-    <PageHeader eyebrow="CARE TEAM" title="Doctors" description="Manage practitioners and their availability." action={<button className="primary" onClick={onAdd}><Plus size={17}/> Add doctor</button>} />
-    <div className="toolbar">
-      <div className="filter-toggle">
-        <button className={!showInactive ? 'filter-btn active' : 'filter-btn'} onClick={() => setShowInactive(false)}>Active ({doctors.length})</button>
-        <button className={showInactive ? 'filter-btn active' : 'filter-btn'} onClick={() => setShowInactive(true)}>Inactive ({inactiveDoctors.length})</button>
-      </div>
-      <span className="muted">{displayList.length} {showInactive ? 'inactive' : 'active'} doctors</span>
-    </div>
-    <div className="doctor-grid">
-      {displayList.map(d => (
-        <div className="panel doctor-card" key={idOf(d)}>
-          <div className="doctor-top">
-            <div className="person-avatar blue-bg"><Stethoscope size={21}/></div>
-            <span className={showInactive ? 'status inactive' : 'status'}>{showInactive ? 'Inactive' : 'Active'}</span>
-          </div>
-          <h3>{d.name}</h3>
-          <p className="muted">{d.license_num}</p>
-          <div className="specialties">{d.specialties.map(s => <span className="tag" key={s}>{s}</span>)}</div>
-          <div className="doctor-actions">
-            {showInactive ? (
-              <button className="small-button confirm" onClick={() => onEnable(idOf(d))}><Power size={14}/> Enable</button>
-            ) : (
-              <button className="small-button cancel" onClick={() => onDeactivate(idOf(d))}><Trash2 size={14}/> Deactivate</button>
-            )}
-          </div>
-        </div>
-      ))}
-    </div>
-    {!displayList.length && <Empty text={showInactive ? 'No inactive doctors' : 'No active doctors'} />}
-  </>;
-}
-
-function Appointments({ appointments, onAction }: { appointments: Appointment[]; onAction: (id: string, action: 'confirm' | 'cancel' | 'complete' | 'no-show') => void }) { return <><PageHeader eyebrow="VISIT PLANNER" title="Appointments" description="Keep track of upcoming visits and booking status." /><div className="panel table-wrap"><table><thead><tr><th>Appointment</th><th>Specialty</th><th>Schedule</th><th>Status</th><th>Actions</th></tr></thead><tbody>{appointments.map(a => <tr key={idOf(a)}><td><div className="person"><div className="person-avatar orange-bg"><CalendarDays size={17}/></div><div><b>{idOf(a).slice(0, 14) || a.slot_id}</b><small>Patient: {a.patient_id}</small></div></div></td><td>{a.specialty}</td><td>{a.start_time ? new Date(a.start_time).toLocaleString() : 'Slot ' + a.slot_id}</td><td><span className={`status ${a.status.toLowerCase()}`}>{a.status}</span></td><td><div className="row-actions">{a.status === 'Scheduled' && <><button className="small-button confirm" onClick={() => onAction(idOf(a), 'confirm')}><Check size={14}/> Confirm</button><button className="small-button cancel" onClick={() => onAction(idOf(a), 'cancel')}><X size={14}/> Cancel</button></>}{a.status === 'Confirmed' && <><button className="small-button confirm" onClick={() => onAction(idOf(a), 'complete')}><Check size={14}/> Complete</button><button className="small-button cancel" onClick={() => onAction(idOf(a), 'no-show')}><X size={14}/> No-show</button></>}</div></td></tr>)}</tbody></table>{!appointments.length && <Empty text="No appointments found" />}</div></> }
-function Empty({ text }: { text: string }) { return <div className="empty"><CalendarDays size={24}/><span>{text}</span></div> }
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop"><div className="modal"><div className="modal-head"><div><p className="eyebrow">NEW RECORD</p><h2>{title}</h2></div><button className="icon-button" onClick={onClose}><X/></button></div>{children}</div></div> }
-function PatientForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) { const [form, setForm] = useState({ name: '', dob: '', gender: 'female', phone: '', email: '', address: '' }); const [saving, setSaving] = useState(false); const submit = async (e: React.FormEvent) => { e.preventDefault(); setSaving(true); try { await api.createPatient({ name: form.name, dob: form.dob, gender: form.gender, contact_info: { phone: form.phone, email: form.email, address: form.address } }); onSaved(); } catch { alert('Unable to register patient. Check the API and form values.'); } finally { setSaving(false); } }; return <Modal title="Register patient" onClose={onClose}><form onSubmit={submit} className="form-grid"><label>Full name<input required value={form.name} onChange={e => setForm({...form, name: e.target.value})}/></label><label>Date of birth<input required type="date" value={form.dob} onChange={e => setForm({...form, dob: e.target.value})}/></label><label>Gender<select value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></label><label>Phone<input required value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}/></label><label>Email<input required type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}/></label><label className="full">Address<input required value={form.address} onChange={e => setForm({...form, address: e.target.value})}/></label><div className="form-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Register patient'}</button></div></form></Modal> }
-function DoctorForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) { const [form, setForm] = useState({ name: '', license_num: '', specialties: 'gp' }); const submit = async (e: React.FormEvent) => { e.preventDefault(); try { await api.createDoctor({ ...form, specialties: form.specialties.split(',').map(s => s.trim()).filter(Boolean) }); onSaved(); } catch { alert('Unable to add doctor. Supported specialties include gp, derm, neuro and cardio.'); } }; return <Modal title="Add doctor" onClose={onClose}><form onSubmit={submit} className="form-grid"><label className="full">Full name<input required placeholder="Dr. Maya Chen" value={form.name} onChange={e => setForm({...form, name: e.target.value})}/></label><label>License number<input required value={form.license_num} onChange={e => setForm({...form, license_num: e.target.value})}/></label><label>Specialties<input required placeholder="gp, derm" value={form.specialties} onChange={e => setForm({...form, specialties: e.target.value})}/></label><div className="form-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary">Add doctor</button></div></form></Modal> }
-export default App;
+function Overview({ patients, doctors, appointments, onNavigate }: { patients: Patient[]; doctors: Doctor[]; appointments: Appointment[]; onNavigate: (view: View) => void }) { return <><section className="hero"><div><p className="eyebrow light">GOOD MORNING, ADMIN</p><h2>Your clinic, at a glance.</h2><p>Keep every patient, provider and appointment moving smoothly.</p></div><HeartPulse size={58}/></section><div className="stat-grid"><Stat label="Total patients" value={patients.length}/><Stat label="Active doctors" value={doctors.length}/><Stat label="Appointments" value={appointments.length}/><Stat label="Scheduled" value={appointments.filter(a => a.status === 'Scheduled').length}/></div><div className="panel quick-actions"><button onClick={() => onNavigate('patients')}><Users/> Manage patients</button><button onClick={() => onNavigate('doctors')}><Stethoscope/> Manage doctors</button><button onClick={() => onNavigate('appointments')}><CalendarDays/> Review appointments</button></div></> }
+function Stat({ label, value }: { label: string; value: number }) { return <div className="stat"><div><span>{label}</span><strong>{value}</strong></div></div> }
+function Header({ title, description }: { title: string; description: string }) { return <div className="page-heading"><div><p className="eyebrow">CAREPOINT</p><h2>{title}</h2><p>{description}</p></div></div> }
+function PatientList({ patients, onOpen }: { patients: Patient[]; onOpen: (patient: Patient) => void }) { const [query, setQuery] = useState(''); const list = patients.filter(p => p.name.toLowerCase().includes(query.toLowerCase())); return <><Header title="Patients" description="Select a patient to view contact details and appointments."/><div className="toolbar"><div className="search"><Search size={17}/><input placeholder="Search patients…" value={query} onChange={event => setQuery(event.target.value)}/></div></div><div className="panel table-wrap"><table><thead><tr><th>Patient</th><th>Date of birth</th><th>Gender</th><th>Contact</th><th/></tr></thead><tbody>{list.map(patient => <tr key={idOf(patient)}><td><b>{patient.name}</b><small>{idOf(patient)}</small></td><td>{patient.dob}</td><td>{patient.gender}</td><td>{patient.contact?.email || '—'}</td><td><button className="small-button confirm" onClick={() => onOpen(patient)}>View details</button></td></tr>)}</tbody></table>{!list.length && <Empty text="No patients found"/>}</div></> }
+function DoctorList({ doctors, inactive, onToggle, onOpen }: { doctors: Doctor[]; inactive: boolean; onToggle: () => void; onOpen: (doctor: Doctor) => void }) { return <><Header title="Doctors" description="Review active and inactive doctors, schedules, and availability."/><div className="toolbar"><button className="secondary" onClick={onToggle}>{inactive ? 'Show active doctors' : 'Show inactive doctors'}</button><span className="muted">{doctors.length} {inactive ? 'inactive' : 'active'} doctors</span></div><div className="doctor-grid">{doctors.map(doctor => <div className="panel doctor-card" key={idOf(doctor)}><div className="doctor-top"><div className="person-avatar blue-bg"><Stethoscope size={21}/></div><span className={inactive ? 'status inactive' : 'status'}>{inactive ? 'Inactive' : 'Active'}</span></div><h3>{doctor.name}</h3><p className="muted">{doctor.license_num}</p><div className="specialties">{doctor.specialties.map(specialty => <span className="tag" key={specialty}>{specialty}</span>)}</div><button className="small-button confirm" onClick={() => onOpen(doctor)}>View details <ChevronRightFallback/></button></div>)}</div>{!doctors.length && <Empty text={inactive ? 'No inactive doctors' : 'No active doctors'}/>}</> }
+function ChevronRightFallback() { return <span>›</span> }
+function AppointmentList({ appointments }: { appointments: Appointment[] }) { return <><Header title="Appointments" description="Review appointment status and patient references."/><div className="panel table-wrap"><table><thead><tr><th>Appointment</th><th>Patient</th><th>Doctor</th><th>Specialty</th><th>Status</th></tr></thead><tbody>{appointments.map(appointment => <tr key={idOf(appointment)}><td>{idOf(appointment) || appointment.slot_id}</td><td>{appointment.patient_id}</td><td>{appointment.doctor_id}</td><td>{appointment.specialty}</td><td><span className={`status ${appointment.status.toLowerCase()}`}>{appointment.status}</span></td></tr>)}</tbody></table>{!appointments.length && <Empty text="No appointments found"/>}</div></> }
+function Empty({ text }: { text: string }) { return <div className="empty"><CalendarDays size={22}/>{text}</div> }
+function Drawer({ children, onClose }: { children: React.ReactNode; onClose: () => void }) { return <div className="modal-backdrop"><aside className="modal drawer"><button className="icon-button" onClick={onClose}><X/></button>{children}</aside></div> }
+function DoctorDrawer({ doctor, inactive, onClose, onEnable, onDeactivate }: { doctor: Doctor; inactive: boolean; onClose: () => void; onEnable: () => void; onDeactivate: () => void }) { return <Drawer onClose={onClose}><p className="eyebrow">DOCTOR DETAILS</p><h2>{doctor.name}</h2><p className="muted">{doctor.license_num}</p><p>Status: <span className={inactive ? 'status inactive' : 'status'}>{inactive ? 'Inactive' : 'Active'}</span></p><h3>Specialties</h3><div className="specialties">{doctor.specialties.map(s => <span className="tag" key={s}>{s}</span>)}</div><div className="form-actions">{inactive ? <button className="primary" onClick={onEnable}><Power size={15}/> Enable doctor</button> : <button className="secondary" onClick={onDeactivate}><Trash2 size={15}/> Deactivate</button>}</div></Drawer> }
+function PatientDrawer({ patient, appointments, onClose }: { patient: Patient; appointments: Appointment[]; onClose: () => void }) { return <Drawer onClose={onClose}><p className="eyebrow">PATIENT DETAILS</p><h2>{patient.name}</h2><p className="muted">{idOf(patient)}</p><h3>Contact</h3><p>{patient.contact?.email || 'No email recorded'}<br/>{patient.contact?.phone || 'No phone recorded'}<br/>{patient.contact?.address || 'No address recorded'}</p><h3>Appointments ({appointments.length})</h3>{appointments.map(appointment => <div className="status-line" key={idOf(appointment)}><CalendarDays size={15}/><span>{appointment.specialty} · {appointment.status}</span></div>)}{!appointments.length && <p className="muted">No appointments found.</p>}</Drawer> }
