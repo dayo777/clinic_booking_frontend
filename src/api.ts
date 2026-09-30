@@ -30,7 +30,10 @@ export const api = {
   updatePatientMedicalAlerts: (id: string, body: unknown) => request<void>(`/patient/${id}/medical-alerts`, json('PUT', body)),
   deletePatient: (id: string) => request<void>(`/patient/${id}`, { method: 'DELETE' }),
   doctors: (page = 1, limit = 20) => request<Doctor[]>(`/doctor?page=${page}&limit=${limit}`),
+  inactiveDoctors: (page = 1, limit = 20) => request<Doctor[]>(`/doctor/inactive?page=${page}&limit=${limit}`),
   createDoctor: (body: unknown) => request<string>('/doctor', json('POST', body)),
+  enableDoctor: (id: string) => request<void>(`/doctor/${id}/enable`, { method: 'PATCH' }),
+  deactivateDoctor: (id: string) => request<void>(`/doctor/${id}`, { method: 'DELETE' }),
   doctorSchedule: (id: string) => request<ScheduleSlot[]>(`/doctor/${id}/active-doctor-schedule`),
   createSchedule: (id: string, slots: ScheduleSlot[]) => request<ScheduleSlot[]>(`/doctor/${id}/create-doctor-schedule`, json('POST', slots)),
   appointmentsForPatient: (id: string) => request<Appointment[]>(`/appointment/patient/${id}`),
@@ -38,4 +41,6 @@ export const api = {
   createAppointment: (body: unknown) => request<void>('/appointment', json('POST', body)),
   confirmAppointment: (id: string, reason = 'Confirmed by doctor') => request<void>(`/appointment/${id}/confirm`, json('PATCH', { reason })),
   cancelAppointment: (id: string, reason = 'Canceled by doctor') => request<void>(`/appointment/${id}/cancel`, json('PATCH', { reason })),
+  completeAppointment: (id: string, reason = 'Completed') => request<void>(`/appointment/${id}/complete`, json('PATCH', { reason })),
+  noShowAppointment: (id: string, reason = 'No-show') => request<void>(`/appointment/${id}/no-show`, json('PATCH', { reason })),
 };
