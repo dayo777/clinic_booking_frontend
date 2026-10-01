@@ -1,6 +1,6 @@
 # CarePoint Clinic Frontend
 
-A responsive React + TypeScript dashboard for the [Clinic Booking API](https://github.com/dayo777/clinic_booking_api). It provides a practical UI for the implemented patient, doctor, schedule, and appointment endpoints.
+A responsive React + TypeScript dashboard for the [Clinic Booking API](https://github.com/dayo777/clinic_booking_api). It provides a practical UI for the implemented patient, doctor, schedule, and appointment workflows.
 
 ## Run with Docker only
 
@@ -44,19 +44,19 @@ docker rm clinic_booking_frontend
 
 ### Pull and run a published image
 
-If an image has been published to a container registry, you can run it without cloning this repository or building locally:
+Published image: [dayo777/clinic-booking-frontend on Docker Hub](https://hub.docker.com/r/dayo777/clinic-booking-frontend/tags)
 
 ```bash
-docker pull YOUR_REGISTRY/clinic-booking-frontend:latest
+docker pull dayo777/clinic-booking-frontend:latest
 docker run -d \
   --name clinic_booking_frontend \
   -p 3000:80 \
-  YOUR_REGISTRY/clinic-booking-frontend:latest
+  dayo777/clinic-booking-frontend:latest
 ```
 
-Replace `YOUR_REGISTRY/clinic-booking-frontend:latest` with the actual published image name.
+Open the frontend at [http://localhost:3000](http://localhost:3000).
 
-> **Important:** The backend must be running at the configured API URL and must allow requests from `http://localhost:3000` through CORS. The frontend automatically sends the required `x-api-version: 1` header.
+> **Important:** The backend must be running at the configured API URL and must allow requests from `http://localhost:3000` through CORS. The frontend automatically sends the required `x-api-version: 1` header when it is configured to talk to the API.
 
 ## Run locally with npm
 
@@ -78,7 +78,7 @@ The default API URL is `http://localhost:8080/api`. Change `VITE_API_URL` in `.e
 - Appointment listing with confirm/cancel actions
 - Responsive dashboard with operational summary
 
-The backend currently exposes appointment lists by patient/doctor, so the dashboard loads appointments for the first five patients returned by the API. CORS must be enabled by the backend when the frontend and API run on different origins.
+The backend currently exposes appointment lists by patient/doctor, so the dashboard loads appointments for the first five patients returned by the API. CORS must be enabled by the backend when the frontend is served from `http://localhost:3000`.
 
 ## Backend route note
 
