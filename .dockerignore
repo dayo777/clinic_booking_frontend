@@ -7,3 +7,8 @@ dist
 !.env.example
 npm-debug.log*
 Dockerfile
+.dockerignore
+README.md
+*.md
+LICENSE
+.github
