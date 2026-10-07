@@ -1,6 +1,20 @@
 import type { Appointment, Doctor, Patient, ScheduleSlot } from './types';
 
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/$/, '');
+// Prefer runtime config from Docker/container environment, fall back to build-time value
+const getRuntimeApiUrl = (): string => {
+  // First: try the runtime env config (set by docker/entrypoint.sh)
+  if (typeof window !== 'undefined' && (window as any).__APP_ENV__?.VITE_API_URL) {
+    return (window as any).__APP_ENV__.VITE_API_URL;
+  }
+  // Second: use build-time Vite env variable
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Default fallback
+  return 'http://localhost:8080/api';
+};
+
+const BASE_URL = getRuntimeApiUrl().replace(/\/$/, '');
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
