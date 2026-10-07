@@ -6,7 +6,7 @@ A responsive React + TypeScript dashboard for the [Clinic Booking API](https://g
 
 You only need Docker installed. Node.js, npm, and the frontend source dependencies are not required on your machine.
 
-### Build the image
+### Build the image from the source code
 
 Run this command from the root of this repository:
 
@@ -24,7 +24,7 @@ docker build \
   -t clinic-booking-frontend .
 ```
 
-### Run the container
+### Run the container from local build
 
 ```bash
 docker run -d \
@@ -42,7 +42,7 @@ docker stop clinic_booking_frontend
 docker rm clinic_booking_frontend
 ```
 
-### Pull and run a published image
+### Pull the container from DockerHub and run a published image
 
 Published image: [dayo777/clinic-booking-frontend on Docker Hub](https://hub.docker.com/r/dayo777/clinic-booking-frontend/tags)
 
