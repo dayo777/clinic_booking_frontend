@@ -1,6 +1,6 @@
 # CarePoint Clinic Frontend
 
-A responsive React + TypeScript dashboard for the [Clinic Booking API](https://github.com/dayo777/clinic_booking_api). It provides a practical UI for the implemented patient, doctor, schedule, and appointment workflows.
+A responsive React + TypeScript dashboard for the [Clinic Booking API](https://github.com/dayo777/clinic_booking_api). The UI follows the implemented API routes and payload shapes documented in the backend's `endpoints.md`.
 
 ## Run with Docker only
 
@@ -56,7 +56,7 @@ docker run -d \
 
 Open the frontend at [http://localhost:3000](http://localhost:3000).
 
-> **Important:** The backend must be running at the configured API URL and must allow requests from `http://localhost:3000` through CORS. The frontend automatically sends the required `x-api-version: 1` header when it is configured to talk to the API.
+> **Important:** The backend must be running at the configured API URL and must allow requests from `http://localhost:3000` through CORS. Every request includes the required `x-api-version: 1` header.
 
 ## Run locally with npm
 
@@ -68,18 +68,15 @@ cp .env.example .env
 npm run dev
 ```
 
-The default API URL is `http://localhost:8080/api`. Change `VITE_API_URL` in `.env` when the backend is hosted elsewhere. The client automatically sends the required `x-api-version: 1` header.
+The default API URL is `http://localhost:8080/api`. Change `VITE_API_URL` in `.env` when the backend is hosted elsewhere.
 
 ## Included workflows
 
-- API health/error state with retry
-- Patient listing, search, registration, and archive
-- Doctor listing and registration
-- Appointment listing with confirm/cancel actions
-- Responsive dashboard with operational summary
+- API connection and error state with retry
+- Patient listing, search, registration, profile review, and archive
+- Doctor listing, registration, activation, deactivation, and schedule management
+- Appointment creation from an available doctor slot
+- Appointment confirmation, cancellation, completion, no-show, and status history
+- Responsive clinic dashboard and appointment summary
 
-The backend currently exposes appointment lists by patient/doctor, so the dashboard loads appointments for the first five patients returned by the API. CORS must be enabled by the backend when the frontend is served from `http://localhost:3000`.
-
-## Backend route note
-
-The frontend uses the implemented schedule route `/doctor/{id}/create-doctor-schedule`, which differs from the older `endpoints.md` example.
+Appointment lists are exposed by the API per patient or doctor, so the dashboard gathers patient appointment pages to create its combined appointment view. Schedule creation uses `POST /doctor/{id}/create-doctor-schedule` with `{ start_time, minutes }` entries; schedule reads use the `/schedule` and `/active-doctor-schedule` routes. Patient cancellation requires a `canceled_by` value and is subject to the backend's 24-hour rule; the dashboard cancellation action is sent as `doctor`.
