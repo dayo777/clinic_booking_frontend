@@ -47,11 +47,11 @@ docker rm clinic_booking_frontend
 Published image: [dayo777/clinic-booking-frontend on Docker Hub](https://hub.docker.com/r/dayo777/clinic-booking-frontend/tags)
 
 ```bash
-docker pull dayo777/clinic-booking-frontend:latest
+docker pull dayo777/clinic-booking-frontend:main
 docker run -d \
   --name clinic_booking_frontend \
   -p 3000:80 \
-  dayo777/clinic-booking-frontend:latest
+  dayo777/clinic-booking-frontend:main
 ```
 
 Open the frontend at [http://localhost:3000](http://localhost:3000).
